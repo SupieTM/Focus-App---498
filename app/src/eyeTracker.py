@@ -9,10 +9,16 @@ dlib_predictor_path = "shape_predictor_68_face_landmarks.dat"
 class eyeTracker:
     eyeList = []
     endTracker = False
+    detector = None
+    predictor = None
     camera: Optional[cv2.VideoCapture] = None
 
     def __init__(self):
         self.initalizeCamera()
+
+        # initalize the detectors
+        self.detector = dlib.get_frontal_face_detector()
+        self.predictor = dlib.shape_predictor(dlib_predictor_path)
         pass
 
     def getState(self):
@@ -25,7 +31,10 @@ class eyeTracker:
             print("Failed to open camera")
             return 0
 
-    def cameraLoop(self):
+    # Upscaling defines how much the image should be "enchanced" before the predictor starts
+    # Base is 1: Higher numbers will be able to predict faces better at the cost of it taking longer to proccess the image
+    # This one initalizes a loop. May need a thread if you decide to use it.  Use getSingleFrame to get a single frame
+    def cameraLoop(self, upscaling):
 
         notDetected = 0
 
@@ -33,10 +42,6 @@ class eyeTracker:
         if self.camera is None:
             print("Camera not yet initalized")
             return 0
-
-        # initalize the detectors
-        detector = dlib.get_frontal_face_detector()
-        predictor = dlib.shape_predictor(dlib_predictor_path)
 
         # I frame can be read
         while not self.endTracker:
@@ -53,40 +58,61 @@ class eyeTracker:
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
             # detect faces
-            dets = detector(gray, 1)
+            dets = self.detector(gray, upscaling)
 
             if (len(dets) == 0):
                 print(f"{notDetected}, Face not found")
                 notDetected += 1
 
             for k, d, in enumerate(dets):
-                shape = predictor(gray, d)
-                #
-                # Grab the left and right eye through the shape predictor
-                left_eye = [(shape.part(i).x, shape.part(i).y)
-                            for i in range(36, 42)]
-                right_eye = [(shape.part(i).x, shape.part(i).y)
-                             for i in range(42, 48)]
-
-                # Draw the eyes in the output picture
-                for (x, y) in left_eye:
-                    cv2.circle(frame, (x, y), 2, (0, 255, 0), -1)
-
-                for (x, y) in right_eye:
-                    cv2.circle(frame, (x, y), 2, (0, 255, 0), -1)
+                shape = self.predictor(gray, d)
 
                 pitch, yaw, roll = self.getFaceangle(shape, gray)
 
-                self.drawViewLine(pitch, yaw, 100, shape.part(30), frame)
+                self.drawDebuggingVectors(pitch, yaw, 100, shape, frame)
 
                 print(f"Pitch: {pitch}, Yaw: {yaw}, Roll: {roll}")
 
-                cv2.imshow("frame", frame)
+            cv2.imshow("frame", frame)
 
             if cv2.waitKey(1) == ord('q'):
                 break
 
         self.closeCamera()
+
+    # Upscaling defines how much the image should be "enchanced" before the predictor starts
+    # Base is 1: Higher numbers will be able to predict faces better at the cost of it taking longer to proccess the image
+    # Gets a single frame and returns the predicted pitch, yaw, and roll of the personal head.
+    # Returns a list of pitch, yaw, roll for each face detected in the image. 
+    def getSingleFrame(self, upscaling):
+
+        # capture a frame
+        ret, frame = self.camera.read()
+
+        if not ret:
+            print("Camera couldn't be found or can't be read from")
+            return []
+
+        # change the color to gray for proccessing help
+        gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
+
+        # Detect faces
+        dets = self.detector(gray, upscaling)
+
+        if (len(dets == 0)):
+            print("Couldn't detect faces this cycle")
+            return [(0, 0, 0)]
+
+        retList = []
+
+        for k, d in enumerate(dets):
+            shape = self.predictor(gray, d)
+
+            pitch, yaw, roll = self.getFaceangle(shape, gray)
+
+            retList.append((pitch, yaw, roll))
+
+        return retList
 
     def closeCamera(self):
         self.camera.release()
@@ -140,7 +166,10 @@ class eyeTracker:
 
         return (pitch, yaw, roll)
 
-    def drawViewLine(self, pitch, yaw, length, nose, frame):
+    def drawDebuggingVectors(self, pitch, yaw, length, shape, frame):
+
+        nose = shape.part(30)
+
         # convert into radians
         pitchR = np.radians(pitch)
         yawR = np.radians(yaw)
@@ -155,6 +184,19 @@ class eyeTracker:
         endpoint = (nose.x + dx, nose.y + dy)
 
         cv2.line(frame, (nose.x, nose.y), endpoint, (255, 0, 0), 2)
+
+        # Grab the left and right eye through the shape predictor
+        left_eye = [(shape.part(i).x, shape.part(i).y)
+                    for i in range(36, 42)]
+        right_eye = [(shape.part(i).x, shape.part(i).y)
+                     for i in range(42, 48)]
+
+        # Draw the eyes in the output picture
+        for (x, y) in left_eye:
+            cv2.circle(frame, (x, y), 2, (0, 255, 0), -1)
+
+        for (x, y) in right_eye:
+            cv2.circle(frame, (x, y), 2, (0, 255, 0), -1)
 
 
 def main():
