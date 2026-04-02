@@ -3,7 +3,7 @@ import numpy as np
 import cv2
 import dlib
 
-dlib_predictor_path = "shape_predictor_68_face_landmarks.dat"
+dlib_predictor_path = "src/shape_predictor_68_face_landmarks.dat"
 
 
 class eyeTracker:
@@ -13,6 +13,7 @@ class eyeTracker:
     predictor = None
     camera: Optional[cv2.VideoCapture] = None
 
+    # Automatically initalizes the camera as well as the detector and predictor for dlib
     def __init__(self):
         self.initalizeCamera()
 
@@ -21,9 +22,14 @@ class eyeTracker:
         self.predictor = dlib.shape_predictor(dlib_predictor_path)
         pass
 
+    #Gets and sets the endTracker State
     def getState(self):
         return self.endTracker
 
+    def setState(self, stateSet: bool):
+        self.endTracker = stateSet
+
+    # Initalizes camera
     def initalizeCamera(self):
         self.camera = cv2.VideoCapture(0)
         if not self.camera.isOpened():
@@ -34,7 +40,7 @@ class eyeTracker:
     # Upscaling defines how much the image should be "enchanced" before the predictor starts
     # Base is 1: Higher numbers will be able to predict faces better at the cost of it taking longer to proccess the image
     # This one initalizes a loop. May need a thread if you decide to use it.  Use getSingleFrame to get a single frame
-    def cameraLoop(self, upscaling):
+    def cameraLoop(self, upscaling: float):
 
         notDetected = 0
 
@@ -83,8 +89,9 @@ class eyeTracker:
     # Upscaling defines how much the image should be "enchanced" before the predictor starts
     # Base is 1: Higher numbers will be able to predict faces better at the cost of it taking longer to proccess the image
     # Gets a single frame and returns the predicted pitch, yaw, and roll of the personal head.
-    # Returns a list of pitch, yaw, roll for each face detected in the image. 
-    def getSingleFrame(self, upscaling):
+    # Returns a list of pitch, yaw, roll for each face detected in the image.
+    # If the camera cannot be found it returns a empty list
+    def getSingleFrame(self, upscaling: float):
 
         # capture a frame
         ret, frame = self.camera.read()
@@ -99,9 +106,8 @@ class eyeTracker:
         # Detect faces
         dets = self.detector(gray, upscaling)
 
-        if (len(dets == 0)):
-            print("Couldn't detect faces this cycle")
-            return [(0, 0, 0)]
+        if (len(dets) == 0):
+            return []
 
         retList = []
 
@@ -110,7 +116,12 @@ class eyeTracker:
 
             pitch, yaw, roll = self.getFaceangle(shape, gray)
 
+            #self.drawDebuggingVectors(pitch, yaw, 100, shape, frame)
+
             retList.append((pitch, yaw, roll))
+
+        # cv2.imshow("Figure", frame)
+        # cv2.waitKey(1)
 
         return retList
 
@@ -118,6 +129,8 @@ class eyeTracker:
         self.camera.release()
         cv2.destroyAllWindows()
 
+    # Compares the 2D points on certain face parts on the image to a 3d estimate on where those parts would be.
+    # With this it estimates the orientation of the users head.
     def getFaceangle(self, facialPoints, img):
 
         size = img.shape
@@ -166,6 +179,7 @@ class eyeTracker:
 
         return (pitch, yaw, roll)
 
+    # Debugging: Draws certain points onto the screen (Doesn't initalize to print the screen)
     def drawDebuggingVectors(self, pitch, yaw, length, shape, frame):
 
         nose = shape.part(30)
@@ -201,9 +215,12 @@ class eyeTracker:
 
 def main():
     cam = eyeTracker()
-    cam.cameraLoop()
+
+    while True:
+        cam.getSingleFrame(1)
 
     return 0
 
 
-main()
+if __name__ == "__main__":
+    main()

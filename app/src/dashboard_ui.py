@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
 from PIL import Image, ImageTk, ImageDraw, ImageFont
+from .eyeTracker import eyeTracker
 import threading
 import time
 import os
@@ -216,11 +217,34 @@ class App(tk.Tk):
 
     # ---------- DISTRACTION CHALLENGE ----------
     def simulate_eye_tracking(self):
+
+        #Initalize the eyeTracker
+        eT: eyeTracker = eyeTracker()
+
+        start = time.time()
+
         while self.is_focusing:
-            time.sleep(10)
+            end = time.time()
+
+            rL = eT.getSingleFrame(1)
+
+            # Calculate the rotation of all in frame
+            for pitch, yaw, roll in rL:
+                if (abs(pitch) < 25 or abs(yaw) < 20):
+                    start = end
+
+            # If noone in frame is looking at the camera for 10 seconds start the challenge
+            if ((end - start) > 5):
+                self.trigger_challenge()
+                start = end
+
+            print(end - start)
+
             if not self.is_focusing:
                 break
-            self.trigger_challenge()
+
+        #Close the eyeTracker and start challenge
+        eT.closeCamera()
 
     def trigger_challenge(self):
         popup = tk.Toplevel(self)
