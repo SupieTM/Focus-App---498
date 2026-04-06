@@ -6,6 +6,7 @@ import threading
 import time
 import os
 import json
+from website_blocker import HostsBlocker
 
 DATA_FILE = "app_data.json"
 
@@ -21,7 +22,8 @@ class App(tk.Tk):
         self.focus_remaining = 0
         self.blocked_sites = []
         self.timer_enabled = tk.BooleanVar(value=True)  # Timer enabled by default
-
+        #Implement website blocker
+        self.blocker = HostsBlocker()
         # ---------- PRELOADED THEMES ----------``
         self.themes = {
             "light": {"bg_color": "#ecf0f1", "text_color": "#000000", "start_btn": "#2ecc71",
@@ -62,6 +64,18 @@ class App(tk.Tk):
 
         # Bind window resize to adjust background
         self.bind("<Configure>", self.resize_bg)
+        #Cleanup function
+        self.protocol("WM_DELETE_WINDOW", self.on_closing)
+
+    #Cleanup Function
+    def on_closing(self):
+        #Runs automatically when the user tries to close the app
+        #Avoids sites being blocked when the app closes
+        print("Closing application. Cleaning up system files...")
+        if self.is_focusing:
+            self.blocker.stop(self.blocked_sites)
+        self.save_data()
+        self.destroy()
 
     # ---------- DASHBOARD ----------
     def build_main_tab(self):
@@ -168,6 +182,7 @@ class App(tk.Tk):
 
         if self.site_listbox.size() > 0:
             print("Site blocker started for:", self.blocked_sites)
+            self.blocker.start(self.blocked_sites)
         if self.noise_var.get():
             print("White noise started at volume:", self.noise_slider.get())
         print("Eye tracking started")
@@ -194,6 +209,7 @@ class App(tk.Tk):
         self.show_report(duration, earned_points)
         self.save_data()
         self.update_rewards_buttons()
+        self.blocker.stop(self.blocked_sites)
 
     # ---------- TIMER ----------
     def update_timer(self):
@@ -245,7 +261,7 @@ class App(tk.Tk):
 
         #Close the eyeTracker and start challenge
         eT.closeCamera()
-
+        
     def trigger_challenge(self):
         popup = tk.Toplevel(self)
         popup.title("Refocus Challenge")
