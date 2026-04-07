@@ -31,13 +31,13 @@ class App(tk.Tk):
             "dark": {"bg_color": "#2c3e50", "text_color": "#ffffff", "start_btn": "#27ae60",
                      "stop_btn": "#c0392b", "bg_image": None, "locked": False, "preview": None},
             "ocean": {"bg_color": "#1abc9c", "text_color": "#ffffff", "start_btn": "#16a085",
-                      "stop_btn": "#c0392b", "bg_image": "ocean_theme.png", "locked": True, "preview": "ocean_theme.png"},
+                      "stop_btn": "#c0392b", "bg_image": "themes/ocean_theme.png", "locked": True, "preview": "themes/ocean_theme.png"},
             "forest": {"bg_color": "#2ecc71", "text_color": "#ffffff", "start_btn": "#27ae60",
-                       "stop_btn": "#c0392b", "bg_image": "forest_theme.png", "locked": True, "preview": "forest_theme.png"},
+                       "stop_btn": "#c0392b", "bg_image": "themes/forest_theme.png", "locked": True, "preview": "themes/forest_theme.png"},
             "sunset": {"bg_color": "#e67e22", "text_color": "#ffffff", "start_btn": "#d35400",
-                       "stop_btn": "#c0392b", "bg_image": "sunset_theme.png", "locked": True, "preview": "sunset_theme.png"},
+                       "stop_btn": "#c0392b", "bg_image": "themes/sunset_theme.png", "locked": True, "preview": "themes/sunset_theme.png"},
             "space": {"bg_color": "#34495e", "text_color": "#ecf0f1", "start_btn": "#2980b9",
-                      "stop_btn": "#c0392b", "bg_image": "space_theme.png", "locked": True, "preview": "space_theme.png"},
+                      "stop_btn": "#c0392b", "bg_image": "themes/space_theme.png", "locked": True, "preview": "themes/space_theme.png"},
         }
         self.current_theme = "light"
         self.bg_img_tk = None
@@ -183,6 +183,8 @@ class App(tk.Tk):
         if self.site_listbox.size() > 0:
             print("Site blocker started for:", self.blocked_sites)
             self.blocker.start(self.blocked_sites)
+        self.site_entry.config(state="disabled")
+        
         if self.noise_var.get():
             print("White noise started at volume:", self.noise_slider.get())
         print("Eye tracking started")
