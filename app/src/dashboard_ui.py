@@ -184,6 +184,7 @@ class App(tk.Tk):
             print("Site blocker started for:", self.blocked_sites)
             self.blocker.start(self.blocked_sites)
         self.site_entry.config(state="disabled")
+        self.site_listbox.config(state="disabled")
         
         if self.noise_var.get():
             print("White noise started at volume:", self.noise_slider.get())
@@ -208,6 +209,8 @@ class App(tk.Tk):
         if self.timer_enabled.get():
             for entry in [self.hour_entry, self.min_entry, self.sec_entry]:
                 entry.config(state="normal")
+        self.site_entry.config(state="normal")
+        self.site_listbox.config(state="normal")
         self.show_report(duration, earned_points)
         self.save_data()
         self.update_rewards_buttons()
