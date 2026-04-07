@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
 from PIL import Image, ImageTk, ImageDraw, ImageFont
-from .eyeTracker import eyeTracker
+from eyeTracker import eyeTracker
 import threading
 import time
 import os
