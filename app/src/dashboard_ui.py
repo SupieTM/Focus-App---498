@@ -244,10 +244,12 @@ class App(tk.Tk):
 
     # ---------- DISTRACTION CHALLENGE ----------
     def simulate_eye_tracking(self):
-        deltaPitch = 15
-        deltaYaw = 20
+        deltaPitch = 10
+        deltaYaw = 18
+        eyeTrackerTimer = 5
 
-        #Initalize the eyeTracker
+        # Initalize the eyeTracker
+
         eT: eyeTracker = eyeTracker()
 
         start = time.time()
@@ -255,18 +257,16 @@ class App(tk.Tk):
         while self.is_focusing:
             end = time.time()
 
-            rL = eT.getSingleFrame(1, True)
+            rL = eT.getSingleFrame(2, False)
 
             # Calculate the rotation of all in frame
             for pitch, yaw, roll in rL:
-
-                print(f"absPitch: {abs(pitch)}")
 
                 if (abs(pitch) > 180 - deltaPitch and abs(yaw) < deltaYaw):
                     start = end
 
             # If noone in frame is looking at the camera for 10 seconds start the challenge
-            if ((end - start) > 5):
+            if ((end - start) > eyeTrackerTimer):
                 self.trigger_challenge()
                 start = end
 

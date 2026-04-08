@@ -22,7 +22,7 @@ class eyeTracker:
         self.predictor = dlib.shape_predictor(dlib_predictor_path)
         pass
 
-    #Gets and sets the endTracker State
+    # Gets and sets the endTracker State
     def getState(self):
         return self.endTracker
 
