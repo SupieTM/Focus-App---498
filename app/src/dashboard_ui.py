@@ -1,12 +1,18 @@
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ANCHOR, ttk
 from PIL import Image, ImageTk, ImageDraw, ImageFont
-from eyeTracker import eyeTracker
+
+if __name__ == "__main__":
+    from eyeTracker import eyeTracker
+    from website_blocker import HostsBlocker
+else:
+    from .eyeTracker import eyeTracker
+    from .website_blocker import HostsBlocker
+
 import threading
 import time
 import os
 import json
-from website_blocker import HostsBlocker
 
 DATA_FILE = "app_data.json"
 
@@ -238,6 +244,8 @@ class App(tk.Tk):
 
     # ---------- DISTRACTION CHALLENGE ----------
     def simulate_eye_tracking(self):
+        deltaPitch = 15
+        deltaYaw = 20
 
         #Initalize the eyeTracker
         eT: eyeTracker = eyeTracker()
@@ -247,11 +255,14 @@ class App(tk.Tk):
         while self.is_focusing:
             end = time.time()
 
-            rL = eT.getSingleFrame(1)
+            rL = eT.getSingleFrame(1, True)
 
             # Calculate the rotation of all in frame
             for pitch, yaw, roll in rL:
-                if (abs(pitch) < 25 or abs(yaw) < 20):
+
+                print(f"absPitch: {abs(pitch)}")
+
+                if (abs(pitch) > 180 - deltaPitch and abs(yaw) < deltaYaw):
                     start = end
 
             # If noone in frame is looking at the camera for 10 seconds start the challenge

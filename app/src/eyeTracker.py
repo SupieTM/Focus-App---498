@@ -91,7 +91,7 @@ class eyeTracker:
     # Gets a single frame and returns the predicted pitch, yaw, and roll of the personal head.
     # Returns a list of pitch, yaw, roll for each face detected in the image.
     # If the camera cannot be found it returns a empty list
-    def getSingleFrame(self, upscaling: float):
+    def getSingleFrame(self, upscaling: float, debuggingView: bool):
 
         # capture a frame
         ret, frame = self.camera.read()
@@ -116,12 +116,14 @@ class eyeTracker:
 
             pitch, yaw, roll = self.getFaceangle(shape, gray)
 
-            #self.drawDebuggingVectors(pitch, yaw, 100, shape, frame)
+            if (debuggingView):
+                self.drawDebuggingVectors(pitch, yaw, 100, shape, frame)
 
             retList.append((pitch, yaw, roll))
 
-        # cv2.imshow("Figure", frame)
-        # cv2.waitKey(1)
+        if (debuggingView):
+            cv2.imshow("Figure", frame)
+            cv2.waitKey(1)
 
         return retList
 
@@ -217,7 +219,7 @@ def main():
     cam = eyeTracker()
 
     while True:
-        cam.getSingleFrame(1)
+        cam.getSingleFrame(1, False)
 
     return 0
 
