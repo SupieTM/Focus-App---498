@@ -1,25 +1,33 @@
 from typing import Optional
 import numpy as np
 import cv2
-import dlib
 
-dlib_predictor_path = "src/shape_predictor_68_face_landmarks.dat"
+# Media Pipe
+import mediapipe as mp
+from mediapipe.tasks import python
+from mediapipe.tasks.python import vision
+
+# Model 
+model_path = "face_landmarker.task"
 
 
 class eyeTracker:
-    eyeList = []
-    endTracker = False
-    detector = None
-    predictor = None
     camera: Optional[cv2.VideoCapture] = None
+    BaseOptions = mp.tasks.BaseOptions
+    FaceLandmarker = mp.tasks.vision.FaceLandmarker
+    FaceLandmarkerOptions = mp.tasks.vision.FaceLandmarkerOptions
+    VisionRunningMode = mp.tasks.vision.RunningMode
+
+    options = FaceLandmarkerOptions(
+        base_options=BaseOptions(model_asset_path=model_path),
+        running_mode=VisionRunningMode.IMAGE,
+    )
+
+    faceTracer = FaceLandmarker.create_from_options(options)
 
     # Automatically initalizes the camera as well as the detector and predictor for dlib
     def __init__(self):
         self.initalizeCamera()
-
-        # initalize the detectors
-        self.detector = dlib.get_frontal_face_detector()
-        self.predictor = dlib.shape_predictor(dlib_predictor_path)
         pass
 
     # Gets and sets the endTracker State
@@ -39,59 +47,11 @@ class eyeTracker:
 
     # Upscaling defines how much the image should be "enchanced" before the predictor starts
     # Base is 1: Higher numbers will be able to predict faces better at the cost of it taking longer to proccess the image
-    # This one initalizes a loop. May need a thread if you decide to use it.  Use getSingleFrame to get a single frame
-    def cameraLoop(self, upscaling: float):
-
-        notDetected = 0
-
-        # Check if the camera is initalized
-        if self.camera is None:
-            print("Camera not yet initalized")
-            return 0
-
-        # I frame can be read
-        while not self.endTracker:
-
-            # capture each frame
-            ret, frame = self.camera.read()
-
-            # If frame cannot be read skip
-            if not ret:
-                print("could not read this frame, contnuing to the next one")
-                continue
-
-            # Change the color to gray to help with proccessing
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
-            # detect faces
-            dets = self.detector(gray, upscaling)
-
-            if (len(dets) == 0):
-                print(f"{notDetected}, Face not found")
-                notDetected += 1
-
-            for k, d, in enumerate(dets):
-                shape = self.predictor(gray, d)
-
-                pitch, yaw, roll = self.getFaceangle(shape, gray)
-
-                self.drawDebuggingVectors(pitch, yaw, 100, shape, frame)
-
-                print(f"Pitch: {pitch}, Yaw: {yaw}, Roll: {roll}")
-
-            cv2.imshow("frame", frame)
-
-            if cv2.waitKey(1) == ord('q'):
-                break
-
-        self.closeCamera()
-
-    # Upscaling defines how much the image should be "enchanced" before the predictor starts
-    # Base is 1: Higher numbers will be able to predict faces better at the cost of it taking longer to proccess the image
     # Gets a single frame and returns the predicted pitch, yaw, and roll of the personal head.
     # Returns a list of pitch, yaw, roll for each face detected in the image.
     # If the camera cannot be found it returns a empty list
-    def getSingleFrame(self, upscaling: float, debuggingView: bool):
+
+    def getSingleFrame(self, debuggingView: bool):
 
         # capture a frame
         ret, frame = self.camera.read()
@@ -101,52 +61,56 @@ class eyeTracker:
             return []
 
         # change the color to gray for proccessing help
-        gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
+        RGBIMG = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-        # Detect faces
-        dets = self.detector(gray, upscaling)
+        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=RGBIMG)
 
-        if (len(dets) == 0):
-            return []
+        detection_result = self.faceTracer.detect(mp_image)
 
-        retList = []
+        rl: list = []
 
-        for k, d in enumerate(dets):
-            shape = self.predictor(gray, d)
+        if detection_result.face_landmarks:
+            for face in detection_result.face_landmarks:
+                print(len(face))
 
-            pitch, yaw, roll = self.getFaceangle(shape, gray)
+                pitch, yaw, roll = self.getFaceangle(face, frame)
 
-            if (debuggingView):
-                self.drawDebuggingVectors(pitch, yaw, 100, shape, frame)
+                rl.append((pitch, yaw, roll))
 
-            retList.append((pitch, yaw, roll))
+        cv2.imshow("frame", frame)
+        cv2.waitKey(1)
 
-        if (debuggingView):
-            cv2.imshow("Figure", frame)
-            cv2.waitKey(1)
-
-        return retList
+        return rl
 
     def closeCamera(self):
         self.camera.release()
         cv2.destroyAllWindows()
+        self.faceTracer.close()
 
     # Compares the 2D points on certain face parts on the image to a 3d estimate on where those parts would be.
     # With this it estimates the orientation of the users head.
-    def getFaceangle(self, facialPoints, img):
+    def getFaceangle(self, face, img):
 
-        size = img.shape
+        h, w, _ = img.shape
 
         imagePoints2D = np.array([
-            (facialPoints.part(30).x, facialPoints.part(30).y),  # Nose
-            (facialPoints.part(8).x, facialPoints.part(8).y),  # Chin
+            # Nose tip
+            (int(face[1].x * w), int(face[1].y * h)),
+
+            # Chin
+            (int(face[152].x * w), int(face[152].y * h)),
+
             # Left eye left corner
-            (facialPoints.part(36).x, facialPoints.part(36).y),
+            (int(face[33].x * w), int(face[33].y * h)),
+
             # Right eye right corner
-            (facialPoints.part(45).x, facialPoints.part(45).y),
-            (facialPoints.part(48).x, facialPoints.part(48).y),  # Left mouth Corner
-            # Right mouth right corner
-            (facialPoints.part(54).x, facialPoints.part(54).y)
+            (int(face[263].x * w), int(face[263].y * h)),
+
+            # Left mouth corner
+            (int(face[61].x * w), int(face[61].y * h)),
+
+            # Right mouth corner
+            (int(face[291].x * w), int(face[291].y * h)),
         ], dtype="double")
 
         # Frontal face figurepoints: These are approximations for common features on the human face in a 3d plane
@@ -161,8 +125,8 @@ class eyeTracker:
             ], dtype="double")
 
         distortionCoeff = np.zeros((4, 1))
-        focalLength = size[1]
-        center = (size[1] / 2, size[0] / 2)
+        focalLength = w
+        center = (w / 2, h / 2)
         matrixCamera = np.array(
             [[focalLength, 0, center[0]], [0, focalLength, center[1]], [0, 0, 1]], dtype="double",)
 
@@ -181,10 +145,48 @@ class eyeTracker:
 
         return (pitch, yaw, roll)
 
-    # Debugging: Draws certain points onto the screen (Doesn't initalize to print the screen)
-    def drawDebuggingVectors(self, pitch, yaw, length, shape, frame):
+    def getEyeAngle(self, face, frame):
 
-        nose = shape.part(30)
+        h, w, _ = frame.shape
+
+        leftIrisCenter = (face[468].x, face[468].y)
+        rightIrisCenter = (face[473].x, face[473].y)
+
+
+        leftEyePoints = [362,398,384,385,386,387,388,466,263,249,390,373,374,380,381,382]
+        rightEyePoints = [33,246,161,160,159,158,157,173,133,155,154,153,145,144,163,7]
+
+        leftEyeMidpoint = [0.0,0.0]
+        for point in leftEyePoints:
+            leftEyeMidpoint[0] += face[point].x
+            leftEyeMidpoint[1] += face[point].y
+
+        leftEyeMidpoint[0] = leftEyeMidpoint[0] / len(leftEyePoints)
+        leftEyeMidpoint[1] = leftEyeMidpoint[1] / len(leftEyePoints)
+
+        rightEyeMidpoint = [0.0,0.0]
+        for point in leftEyePoints:
+            rightEyeMidpoint[0] += face[point].x
+            rightEyeMidpoint[1] += face[point].x
+
+        rightEyeMidpoint[0] = rightEyeMidpoint[0] / len(rightEyePoints)
+        rightEyeMidpoint[1] = rightEyeMidpoint[1] / len(rightEyePoints)
+
+
+
+
+
+
+
+        return
+
+    # Debugging: Draws certain points onto the screen (Doesn't initalize to print the screen)
+
+    def drawDebuggingVectors(self, pitch, yaw, length, face, frame):
+
+        h, w, _ = frame.shape
+
+        nose = face[1]
 
         # convert into radians
         pitchR = np.radians(pitch)
@@ -197,29 +199,24 @@ class eyeTracker:
         dx = int(directionVector[0] * length)
         dy = int(directionVector[1] * length)
 
-        endpoint = (nose.x + dx, nose.y + dy)
+        endpoint = (int(nose.x * w) + dx, int(nose.y * h) + dy)
 
-        cv2.line(frame, (nose.x, nose.y), endpoint, (255, 0, 0), 2)
+        cv2.line(frame, (int(nose.x * w), int(nose.y * h)),
+                 endpoint, (255, 0, 0), 2)
 
-        # Grab the left and right eye through the shape predictor
-        left_eye = [(shape.part(i).x, shape.part(i).y)
-                    for i in range(36, 42)]
-        right_eye = [(shape.part(i).x, shape.part(i).y)
-                     for i in range(42, 48)]
-
-        # Draw the eyes in the output picture
-        for (x, y) in left_eye:
-            cv2.circle(frame, (x, y), 2, (0, 255, 0), -1)
-
-        for (x, y) in right_eye:
-            cv2.circle(frame, (x, y), 2, (0, 255, 0), -1)
+        cv2.circle(frame, (int(face[468].x * w),
+                   int(face[468].y * h)), 1, (0, 255, 0), 2)
+        cv2.circle(frame, (int(face[473].x * w),
+                   int(face[473].y * h)), 1, (0, 255, 0), 2)
 
 
+
+# Test function
 def main():
     cam = eyeTracker()
 
     while True:
-        cam.getSingleFrame(1, False)
+        rl = cam.getSingleFrame(False)
 
     return 0
 
