@@ -232,8 +232,6 @@ def main():
 
     while True:
         rl = cam.getSingleFrame(False)
-        print(rl)
-
     return 0
 
 
