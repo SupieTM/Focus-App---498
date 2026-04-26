@@ -8,7 +8,7 @@ from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 
 # Model 
-model_path = "face_landmarker.task"
+model_path = "src/face_landmarker.task"
 
 
 class eyeTracker:
@@ -74,11 +74,15 @@ class eyeTracker:
                 print(len(face))
 
                 pitch, yaw, roll = self.getFaceangle(face, frame)
+                dp, dy = self.getEyeAngle(face, frame)
+                pitch += dp
+                yaw += dy
 
                 rl.append((pitch, yaw, roll))
 
-        cv2.imshow("frame", frame)
-        cv2.waitKey(1)
+        if debuggingView:
+            cv2.imshow("frame", frame)
+            cv2.waitKey(1)
 
         return rl
 
@@ -165,12 +169,23 @@ class eyeTracker:
         leftEyeMidpoint[1] = leftEyeMidpoint[1] / len(leftEyePoints)
 
         rightEyeMidpoint = [0.0,0.0]
-        for point in leftEyePoints:
+        for point in rightEyePoints:
             rightEyeMidpoint[0] += face[point].x
-            rightEyeMidpoint[1] += face[point].x
+            rightEyeMidpoint[1] += face[point].y
 
         rightEyeMidpoint[0] = rightEyeMidpoint[0] / len(rightEyePoints)
         rightEyeMidpoint[1] = rightEyeMidpoint[1] / len(rightEyePoints)
+
+
+        dle = ((leftIrisCenter[0] - leftEyeMidpoint[0]) * 100, (leftIrisCenter[1] - leftEyeMidpoint[1]) * 100)
+
+        dre = ((rightIrisCenter[0] - rightEyeMidpoint[0]) * 100, (rightIrisCenter[1] - rightEyeMidpoint[1]) * 100)
+
+        deltayaw = (np.tanh(dle[0] / 3) + np.tanh(dre[0] / 3)) / 2
+        deltaPitch = (np.tanh(dle[1] / 3) + np.tanh(dre[1] / 3)) / 2
+
+        return (deltaPitch, deltayaw)
+
 
 
 
@@ -217,6 +232,7 @@ def main():
 
     while True:
         rl = cam.getSingleFrame(False)
+        print(rl)
 
     return 0
 
