@@ -332,7 +332,7 @@ class App(tk.Tk):
                 continue
             end = time.time()
 
-            rL = eT.getSingleFrame(2, False)
+            rL = eT.getSingleFrame(False)
 
             # Calculate the rotation of all in frame
             for pitch, yaw, roll in rL:
@@ -344,8 +344,6 @@ class App(tk.Tk):
             if ((end - start) > eyeTrackerTimer):
                 self.trigger_challenge()
                 start = end
-
-            print(end - start)
 
             if not self.is_focusing:
                 break
